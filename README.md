@@ -80,3 +80,45 @@ This model identifies more potentially lapsed customers, although it may also fl
 
 ## Limitations
 The data is synthetic, so real-world performance may differ. The model should be tested on real, future customer data before deployment.
+
+## Part C — Ticket Triage and Support Routing
+
+### Overview
+Built a ticket classification pipeline using the offline `mock_llm.py` to classify support tickets into billing, delivery, technical, and fraud categories.
+
+### Data Cleaning and PII Redaction
+- Processed 164 tickets.
+- Redacted 278 PII occurrences: 55 emails, 91 phone numbers, and 132 order IDs.
+- Skipped 4 empty tickets and flagged 4 long tickets.
+- Verified that no matching PII patterns remained in eligible ticket text.
+
+### Zero-Shot vs Few-Shot
+
+| Metric | Zero-Shot | Few-Shot |
+|---|---:|---:|
+| Accuracy | 85.7% | 100% |
+| Classified tickets | 147 | 147 |
+| Tokens used | 16,888 | 31,084 |
+
+**Conclusion:** Few-shot prompting classified 21 more tickets correctly than zero-shot, improving accuracy by 14.3 percentage points. However, it used approximately 84.1% more tokens. Few-shot was the better choice when classification accuracy was the priority.
+
+### Validation and Error Handling
+- Added retries for temporary model errors.
+- Validated JSON responses and used keyword matching only when exactly one supported category was found.
+- Flagged invalid responses for human review instead of guessing.
+- Tested a 6,000-token budget using zero-shot prompting; 53 tickets were classified before the budget was exhausted.
+
+### Final Routing
+The final few-shot run used 31,084 tokens and achieved 100% accuracy on 147 classified tickets.
+
+| Route | Tickets |
+|---|---:|
+| `support_queue` | 102 |
+| `security_team` | 34 |
+| `premium_desk` | 11 |
+| `human_review` | 17 |
+
+Fraud tickets were routed to the security team, premium customers to the premium desk, and invalid, empty, or long tickets to human review.
+
+### Conclusion
+Few-shot prompting provided better classification accuracy on this synthetic dataset, while zero-shot used fewer tokens. The pipeline also supports PII redaction, response validation, retry handling, token-budget checks, and customer-based routing.
