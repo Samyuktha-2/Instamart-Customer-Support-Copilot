@@ -1,180 +1,181 @@
-# Instamart-Customer-Support-Copilot
+# Instamart Customer Support Copilot
 
-The objective of this project is to build a reliable customer intelligence system that converts raw operational data into actionable insights, improves customer support efficiency, and enables consistent, policy-compliant refund decisions.
+## Overview
 
----
+A customer intelligence and support automation system that analyses operational data, segments customers, predicts customer lapse, classifies support tickets, and processes policy-compliant refund decisions.
 
-## Setup and Execution
+**Technologies:** Python, SQLite, Pandas, Scikit-learn, TF-IDF and offline `mock_llm.py`.
+
+## Reproduce
 
 ### Prerequisites
-
-- Python 3.11 or later
-- SQLite 3.25 or later
+- Python 3.11+
+- SQLite 3.25+
 - Git
-- A terminal such as PowerShell or the VS Code terminal
 
-### 1. Clone the repository and navigate to the project root
+### Setup
 
 ```powershell
 git clone <your-github-repository-url>
-cd instamart-customer-copilot
-```
+cd Instamart-Customer-Support-Copilot
 
-### 2. Create and activate a virtual environment
-
-```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-```
 
-### 3. Install dependencies
-
-### 4. Generate the synthetic dataset
-
-```powershell
+pip install -r requirements.txt
 python generate_data.py
 ```
 
----
+### Part A execution
+
+```powershell
+python src/part_a_data_foundation/audit_raw.py
+python src/part_a_data_foundation/clean_data.py
+python src/part_a_data_foundation/build_database.py
+python src/part_a_data_foundation/validate_data.py
+python src/part_a_data_foundation/run_analysis.py
+```
+
+Parts B–D use the generated datasets and database. Run their scripts from `src/` in the required pipeline order.
+
+All LLM interactions use the supplied offline `mock_llm.py`. No API key is required.
 
 ## Part A — Data Foundation and SQL Analysis
 
-Part A establishes the data foundation for the Instamart Customer Intelligence & Support Copilot. It covers raw data auditing, data cleaning, validation, SQLite database creation, SQL-based analysis, and exploratory data analysis (EDA) using pandas. The synthetic dataset contains customer, product, order, and support ticket records. The raw data is inspected for missing values, duplicate records, inconsistent categories, invalid numeric values, and data quality issues before being cleaned and stored. The cleaned data is then used to perform seven SQL analyses and cross-check the results using pandas. Validation checkpoints ensure that the cleaned datasets and database match the expected reference results.
+Audited, cleaned and validated synthetic customer, product, order and ticket data. Built a SQLite database and performed seven SQL analyses, cross-validated using Pandas.
 
-### Execute the Part A pipeline
-
-Once the scripts are saved, execute the full Part A pipeline from the root using:
-
-```powershell
-python generate_data.py
-if ($LASTEXITCODE -eq 0) { python src/part_a_data_foundation/audit_raw.py }
-if ($LASTEXITCODE -eq 0) { python src/part_a_data_foundation/clean_data.py }
-if ($LASTEXITCODE -eq 0) { python src/part_a_data_foundation/build_database.py }
-if ($LASTEXITCODE -eq 0) { python src/part_a_data_foundation/validate_data.py }
-if ($LASTEXITCODE -eq 0) { python src/part_a_data_foundation/run_analysis.py }
-```
-
----
+**Results:**
+- Unique orders: 12,309
+- Completed orders: 11,110
+- Cancelled orders: 1,199
+- Revenue: INR 2,998,668.80
+- Database integrity: Passed
 
 ## Part B — Customer Intelligence and Lapse Prediction
 
-### Overview
+### Customer Segmentation
 
-Part B uses customer purchase history to group customers and predict who may stop purchasing.
+Applied RFM analysis and K-means clustering to 1,175 customers.
 
-### 1. Customer Segmentation
+| Segment | Customers |
+|---|---:|
+| Occasional Customers | 436 |
+| Premium Customers | 138 |
+| Loyal Regulars | 419 |
+| At-Risk Customers | 182 |
 
-RFM analysis was performed on **1,175 customers**. K-means clustering grouped them into four segments:
+### Lapse Prediction
 
-- **Occasional Customers:** Purchase less frequently.
-- **Premium Customers:** Spend the most.
-- **Loyal Regulars:** Purchase frequently.
-- **At-Risk Customers:** Have not purchased recently.
+Defined lapse as no completed purchase during September 2025.
 
-Results are saved in `outputs/customer_segments.csv`.
+- Lapse cohort: 1,156
+- Lapsed customers: 443
+- Non-lapsed customers: 713
 
-### 2. Lapse Prediction
+Balanced Logistic Regression was selected after evaluating Logistic Regression and Random Forest.
 
-A customer was considered lapsed if they made no completed purchase during September 2025. The dataset contained 1,156 customers, including 443 lapsed customers.
+**Performance:**
+- Accuracy: 71.55%
+- Precision: 0.5891
+- Recall: 85.39%
+- F1 score: 0.6972
 
-Logistic Regression and Random Forest were tested. Oversampling was used to improve the model's ability to identify lapsed customers.
-
-### 3. Selected Model and Conclusion
-
-**Balanced Logistic Regression** was selected because it achieved the best F1 score of **0.6972** and recall of **85.39%**.
-
-This model identifies more potentially lapsed customers, although it may also flag some customers who are not actually lapsed. It can help prioritise customer retention campaigns.
-
-- Final model: `outputs/lapse_model.joblib`
-- Retention list: `outputs/retention_list.csv`
-
-### Limitations
-
-The data is synthetic, so real-world performance may differ. The model should be tested on real, future customer data before deployment.
-
----
+**Outputs:** `customer_segments.csv`, `lapse_model.joblib`, `retention_list.csv`.
 
 ## Part C — Ticket Triage and Support Routing
 
-### Overview
+Implemented ticket classification using offline `mock_llm.py` with PII redaction, JSON validation, retries and fallback handling.
 
-Built a ticket classification pipeline using the offline `mock_llm.py` to classify support tickets into billing, delivery, technical, and fraud categories.
-
-### Data Cleaning and PII Redaction
-
-- Processed 164 tickets.
-- Redacted 278 PII occurrences: 55 emails, 91 phone numbers, and 132 order IDs.
-- Skipped 4 empty tickets and flagged 4 long tickets.
-- Verified that no matching PII patterns remained in eligible ticket text.
+**Data processing:**
+- Tickets: 164
+- Eligible model calls: 156
+- Classified: 147
+- Valid JSON: 135
+- Keyword classifications: 12
+- Invalid responses: 9
+- Empty tickets: 4
+- Long tickets: 4
+- PII redactions: 278 (55 emails, 91 phone numbers, 132 order IDs)
 
 ### Zero-Shot vs Few-Shot
 
 | Metric | Zero-Shot | Few-Shot |
 |---|---:|---:|
 | Accuracy | 85.7% | 100% |
-| Classified tickets | 147 | 147 |
-| Tokens used | 16,888 | 31,084 |
+| Classified | 147 | 147 |
+| Tokens | 16,888 | 31,084 |
 
-**Conclusion:** Few-shot prompting classified 21 more tickets correctly than zero-shot, improving accuracy by 14.3 percentage points. However, it used approximately 84.1% more tokens. Few-shot was the better choice when classification accuracy was the priority.
+Few-shot improved accuracy by 14.3 percentage points, using approximately 84.1% more tokens.
 
-### Validation and Error Handling
-
-- Added retries for temporary model errors.
-- Validated JSON responses and used keyword matching only when exactly one supported category was found.
-- Flagged invalid responses for human review instead of guessing.
-- Tested a 6,000-token budget using zero-shot prompting; 53 tickets were classified before the budget was exhausted.
+A 6,000-token budget demonstration classified 53 tickets, used 6 retries and reached 6,062 tokens.
 
 ### Final Routing
 
-The final few-shot run used 31,084 tokens and achieved 100% accuracy on 147 classified tickets.
-
 | Route | Tickets |
 |---|---:|
-| `support_queue` | 102 |
-| `security_team` | 34 |
-| `premium_desk` | 11 |
-| `human_review` | 17 |
+| support_queue | 102 |
+| security_team | 34 |
+| premium_desk | 11 |
+| human_review | 17 |
 
-Fraud tickets were routed to the security team, premium customers to the premium desk, and invalid, empty, or long tickets to human review.
+## Part D — Policy Assistant and Refund ReAct Agent
 
-### Conclusion
+### Policy RAG Assistant
 
-Few-shot prompting provided better classification accuracy on this synthetic dataset, while zero-shot used fewer tokens. The pipeline also supports PII redaction, response validation, retry handling, token-budget checks, and customer-based routing.
+Built a TF-IDF and cosine similarity retrieval system over five policy documents.
 
----
-
-## Part D — Policy Assistant & Refund ReAct Agent
-
-### 1. Policy RAG Assistant
-
-- Split five policy documents into 40-word chunks with 10-word overlap, preserving source filenames.
-- Built a TF-IDF retrieval system using `TfidfVectorizer` and cosine similarity to retrieve the top 3 relevant chunks.
-- Implemented `policy_assistant.py` using the supplied `mock_llm.py`. The assistant answers using retrieved policy context and returns source filenames. Unsupported questions receive the required fallback response.
-
-**Evaluation Results**
+- Chunk size: 40 words
+- Overlap: 10 words
+- Total chunks: 15
+- Retrieved chunks: Top 3
 
 | Metric | 10-word overlap | Zero overlap |
 |---|---:|---:|
 | Document recall | 12/12 | 12/12 |
-| Expected fact accuracy | 12/12 | 10/12 |
+| Fact accuracy | 12/12 | 10/12 |
 | Unsupported fallback | 2/2 | 2/2 |
 
-Overlapping chunks preserve context across chunk boundaries, improving answer accuracy.
+### Refund ReAct Agent
 
-### 2. Refund ReAct Agent
+Implemented five tools: `get_order`, `search_policy`, `calculate_refund`, `issue_refund` and `escalate_to_human`.
 
-Implemented five tools:
+Refund rules: completed orders only; delivery above 45 minutes qualifies for a full refund; refunds above INR 1,000 require human approval; requests follow the seven-day policy window.
 
-- `get_order` – retrieves order details from SQLite.
-- `search_policy` – retrieves relevant policy information.
-- `calculate_refund` – calculates eligible refunds.
-- `issue_refund` – records approved refunds.
-- `escalate_to_human` – handles refunds above INR 1,000.
+**Scenario results:**
 
-The agent checks order status, delivery time and refund amount before processing. Refunds are issued only for completed orders delivered after 45 minutes.
+| Scenario | Status | Refund (INR) | Calls | Tokens |
+|---|---|---:|---:|---:|
+| S1 | REFUND | 128.25 | 5 | 1,457 |
+| S2 | REFUND | 135.00 | 5 | 1,457 |
+| S3 | ESCALATE | 1,999.00 | 5 | 1,444 |
+| S4 | DENIED | 0 | 4 | 1,053 |
+| S5 | DENIED | 0 | 3 | 673 |
+| S6 | NOT_FOUND | 0 | 2 | 296 |
+| S7 | FALLBACK_MAX_ITERATIONS | 0 | 6 | 3,672 |
 
-### 3. Reliability & Limitations
+All seven scenarios matched their expected outcomes.
 
-- Implemented iteration, token and timeout safeguards.
-- Added JSON checkpointing and resume functionality. Verified S1 resumed with four tool executions and no repeated tools.
-- Used TF-IDF retrieval and a supplied mock LLM; semantic retrieval and real LLM integration remain future improvements.
+### Reliability and Recovery
+
+Implemented iteration, token and timeout safeguards. Verified:
+- Token limit: `FALLBACK_TOKEN_LIMIT` (200-token limit; 2 calls, 326 tokens).
+- Timeout: `FALLBACK_TIMEOUT` (0 calls).
+- Iteration limit: `FALLBACK_MAX_ITERATIONS` (6 calls).
+
+Checkpoint/resume was tested with S1. The resumed run completed four tool executions without repeating previous executions.
+
+**Outputs:** `agent_runs.jsonl`, `refund_ledger.jsonl` and `state/` checkpoints.
+
+### ReAct vs Plan-and-Execute
+
+ReAct selects tools dynamically using intermediate observations. S1 required 5 model calls, S5 required 3 and S6 required 2. This supports conditional decisions for completed, cancelled and missing orders.
+
+Plan-and-Execute creates a plan before tool execution. It can reduce repeated reasoning in predictable workflows but is less adaptive to unexpected observations. ReAct was selected because refund decisions depend on order status, delivery time and refund eligibility.
+
+## Limitations and Next Steps
+
+- Synthetic data may not represent real-world behaviour.
+- The supplied mock LLM is not a production model.
+- TF-IDF may miss semantically similar queries.
+- Validate models using real data before deployment.
+- Future improvements: semantic retrieval, production LLM integration, expanded evaluation and monitoring.
